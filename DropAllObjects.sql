@@ -1,4 +1,4 @@
-CREATE PROCEDURE DropAllObjects
+create PROCEDURE DropAllObjects
 /**
 Summary: >
 	This is a procedure that deletes an entire database. Before using it please make sure 
@@ -15,13 +15,16 @@ Returns: >
 AS
 DECLARE @AllTheDeletes NVARCHAR(MAX) = N'';
 DECLARE @ThereAreMoreToDo INT = 20;--we limit the number of loops in case of
+DECLARE @NumberOfDeletions INT;
 -- mutual dependencies
-WHILE (@ThereAreMoreToDo >= 0) -- we loop through, deleting objects
+WHILE (@ThereAreMoreToDo > 0) -- we loop through, deleting objects
   BEGIN
-    SELECT @AllTheDeletes =
-      @AllTheDeletes + N'DROP  ' + type + N' ' + "SCHEMA" + N'.' + "name"
-      + N'; 
-' --this generates the DROP statement for the object that is then executed as a string
+	PRINT  @ThereAreMoreToDo
+    SELECT @AllTheDeletes ='';
+    SELECT @AllTheDeletes=@AllTheDeletes +
+	N'print ''dropping '+ type + N' ' + QUOTENAME ("SCHEMA") + N'.' + QUOTENAME ("name") +''';
+	DROP  ' + type + N' ' + QUOTENAME ("SCHEMA") + N'.' + QUOTENAME ("name")+ N';'
+	 --this generates the DROP statement for the object that is then executed as a string
       FROM -- we get a table source consisting of all the tables, views  and routines.
         (SELECT CASE WHEN TABLE_TYPE = 'BASE TABLE' THEN 'TABLE ' ELSE
                                                                   TABLE_TYPE END AS "type",
@@ -57,19 +60,12 @@ WHILE (@ThereAreMoreToDo >= 0) -- we loop through, deleting objects
           ON fks.referenced_name = "SCHEMA" + '.' + "name"
       WHERE
       "entity_name" IS NULL AND fks.referenced_name IS NULL;
-    SELECT @ThereAreMoreToDo = CASE WHEN @@RowCount > 0 THEN @ThereAreMoreToDo-1 ELSE 0 end ;
+	SELECT @NumberOfDeletions=@@Rowcount
+    SELECT @ThereAreMoreToDo = CASE WHEN @NumberOfDeletions > 0 THEN @ThereAreMoreToDo-1 ELSE 0 end ;
     IF (@ThereAreMoreToDo > 0)
       BEGIN
         IF (@ThereAreMoreToDo =1) RAISERROR ('Couldn''t delete the database',16,1);
-        EXEC sp_executesql @AllTheDeletes;
+		EXEC sp_executesql @AllTheDeletes;
       END;
   END;
 
-
-
-  SELECT Count(*) FROM sys.objects WHERE is_ms_shipped =1 
-SELECT 
-  Sum(CASE is_ms_shipped WHEN 1 THEN 1 ELSE 0 END) AS Is_MS_Shipped,
-  Sum(CASE is_Published WHEN 1 THEN 1 ELSE 0 END) AS Is_Published, 
-   Sum(CASE is_schema_published WHEN 1 THEN 1 ELSE 0 END )AS Is_Schema_Published
-  FROM sys.objects 
